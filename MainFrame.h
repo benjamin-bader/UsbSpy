@@ -8,6 +8,9 @@
 class MainFrame : public CFrameWindowImpl<MainFrame>
 {
 	HDEVNOTIFY m_hdevnotify;
+	CListViewCtrl m_eventListView;
+
+	void AddDeviceEvent(_In_z_ const wchar_t* eventType, _In_opt_z_ const wchar_t* deviceName);
 
 public:
 	DECLARE_FRAME_WND_CLASS(L"UsbSpy_MainFrame", 1);
