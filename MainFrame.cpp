@@ -16,8 +16,42 @@ MainFrame::MainFrame()
 	: m_hdevnotify{nullptr}
 {}
 
+void MainFrame::AddDeviceEvent(_In_z_ const wchar_t* eventType, _In_opt_z_ const wchar_t* deviceName)
+{
+	SYSTEMTIME localTime{};
+	::GetLocalTime(&localTime);
+
+	wchar_t timestamp[64]{};
+	::swprintf_s(timestamp,
+		L"%04hu-%02hu-%02hu %02hu:%02hu:%02hu",
+		localTime.wYear,
+		localTime.wMonth,
+		localTime.wDay,
+		localTime.wHour,
+		localTime.wMinute,
+		localTime.wSecond);
+
+	const int index = m_eventListView.GetItemCount();
+	m_eventListView.InsertItem(index, eventType);
+	m_eventListView.SetItemText(index, 1, timestamp);
+	m_eventListView.SetItemText(index, 2, deviceName != nullptr ? deviceName : L"<unknown>");
+}
+
 LRESULT MainFrame::OnCreate(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& handled)
 {
+	m_eventListView.Create(
+		m_hWnd,
+		rcDefault,
+		nullptr,
+		WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | LVS_REPORT,
+		WS_EX_CLIENTEDGE);
+
+	m_eventListView.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+	m_eventListView.InsertColumn(0, L"Event", LVCFMT_LEFT, 140);
+	m_eventListView.InsertColumn(1, L"Time", LVCFMT_LEFT, 170);
+	m_eventListView.InsertColumn(2, L"Device", LVCFMT_LEFT, 700);
+	m_hWndClient = m_eventListView;
+
 	DEV_BROADCAST_DEVICEINTERFACE filter{};
 	filter.dbcc_size = sizeof(decltype(filter));
 	filter.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
@@ -48,16 +82,17 @@ LRESULT MainFrame::OnDestroy(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& hand
 
 LRESULT MainFrame::OnDeviceChange(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& handled)
 {
-	PDEV_BROADCAST_DEVICEINTERFACE b = reinterpret_cast<PDEV_BROADCAST_DEVICEINTERFACE>(lParam);
+	const auto* deviceInfo = reinterpret_cast<PDEV_BROADCAST_DEVICEINTERFACE>(lParam);
+	const wchar_t* deviceName = (deviceInfo != nullptr) ? deviceInfo->dbcc_name : L"<unknown>";
 
 	switch (wParam)
 	{
 	case DBT_DEVICEARRIVAL:
-		OutputDebugString(L"Device arrived!");
+		AddDeviceEvent(L"Arrived", deviceName);
 		break;
 
 	case DBT_DEVICEREMOVECOMPLETE:
-		OutputDebugString(L"Device removed.");
+		AddDeviceEvent(L"Removed", deviceName);
 		break;
 	}
 	return 0;
